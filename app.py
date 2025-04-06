@@ -1,42 +1,23 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 import feedparser
 import os
-from datetime import datetime, timedelta
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
 @app.route('/api/entreprises')
-def get_entreprises():
-    periode = request.args.get("periode", "jour")  # "jour", "semaine", "mois"
-    
+def get_all():
     rss_url = "https://www.ejustice.just.fgov.be/cgi_tsv/tsv_rss.pl"
     feed = feedparser.parse(rss_url)
 
-    maintenant = datetime.now()
-    
-    if periode == "jour":
-        date_limite = maintenant - timedelta(days=1)
-    elif periode == "semaine":
-        date_limite = maintenant - timedelta(days=7)
-    elif periode == "mois":
-        date_limite = maintenant - timedelta(days=30)
-    else:
-        date_limite = maintenant - timedelta(days=1)
-
     resultats = []
-    for entry in feed.entries:
-        try:
-            date_pub = datetime(*entry.published_parsed[:6])
-            if date_pub >= date_limite and "constitution" in entry.title.lower():
-                resultats.append({
-                    "titre": entry.title,
-                    "lien": entry.link,
-                    "date": entry.published
-                })
-        except:
-            continue
+    for entry in feed.entries[:30]:  # on limite à 30 résultats pour éviter trop de données
+        resultats.append({
+            "titre": entry.title,
+            "lien": entry.link,
+            "date": entry.published
+        })
 
     return jsonify(resultats)
 
