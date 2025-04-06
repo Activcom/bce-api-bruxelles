@@ -1,32 +1,48 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
-def get_bce_data(start_date):
-    url = "https://kbopub.economie.fgov.be/kbo_web_service/public/search/criteria"
-    headers = {
-        "Content-Type": "application/json"
+def scrape_bce(date_debut):
+    url = "https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html"
+
+    # Format de la date attendu par le site
+    date_str = date_debut.strftime('%d/%m/%Y')
+
+    params = {
+        "lang": "fr",
+        "hoofdstatus": "ACT",
+        "startdatumvan": date_str,
+        "actie": "Zoeken"
     }
 
-    payload = {
-        "searchTerm": "",
-        "language": "FR",
-        "startDate": start_date.strftime('%Y-%m-%d'),
-        "entityStatus": "ACTIVE"
-    }
+    response = requests.get(url, params=params)
+    soup = BeautifulSoup(response.text, 'html.parser')
 
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("results", [])
-        else:
-            return []
-    except:
+    table = soup.find('table', {'class': 'resultTable'})
+    resultats = []
+
+    if not table:
         return []
+
+    rows = table.find_all('tr')[1:]  # skip header row
+    for row in rows:
+        cols = row.find_all('td')
+        if len(cols) >= 3:
+            nom = cols[0].text.strip()
+            numero_bce = cols[1].text.strip()
+            forme = cols[2].text.strip()
+            resultats.append({
+                "nom": nom,
+                "numero_bce": numero_bce,
+                "forme": forme
+            })
+
+    return resultats
 
 @app.route('/api/entreprises')
 def entreprises():
@@ -42,26 +58,8 @@ def entreprises():
     else:
         date_debut = now - timedelta(days=1)
 
-    entreprises = get_bce_data(date_debut)
-
-    resultats = []
-    for ent in entreprises:
-        adresse = ""
-        try:
-            if ent.get("addresses"):
-                adresse = ent["addresses"][0].get("street", "")
-        except:
-            adresse = ""
-
-        resultats.append({
-            "nom": ent.get("denomination", "Inconnu"),
-            "numero_bce": ent.get("enterpriseNumber", "N/A"),
-            "forme": ent.get("legalForm", "N/A"),
-            "date": ent.get("startDate", "N/A"),
-            "adresse": adresse
-        })
-
-    return jsonify(resultats)
+    data = scrape_bce(date_debut)
+    return jsonify(data)
 
 if __name__ == "__main__":
     import os
