@@ -2,8 +2,10 @@ from flask import Flask, jsonify, request
 import feedparser
 import os
 from datetime import datetime, timedelta
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/api/entreprises')
 def get_entreprises():
@@ -21,7 +23,7 @@ def get_entreprises():
     elif periode == "mois":
         date_limite = maintenant - timedelta(days=30)
     else:
-        date_limite = maintenant - timedelta(days=1)  # par défaut : 1 jour
+        date_limite = maintenant - timedelta(days=1)
 
     resultats = []
     for entry in feed.entries:
