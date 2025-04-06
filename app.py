@@ -19,10 +19,13 @@ def get_bce_data(start_date):
         "entityStatus": "ACTIVE"
     }
 
-    response = requests.post(url, json=payload, headers=headers)
-    if response.status_code == 200:
-        return response.json().get("results", [])
-    else:
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            return response.json().get("results", [])
+        else:
+            return []
+    except:
         return []
 
 @app.route('/api/entreprises')
@@ -43,12 +46,19 @@ def entreprises():
 
     resultats = []
     for ent in entreprises:
+        adresse = ""
+        try:
+            if ent.get("addresses"):
+                adresse = ent["addresses"][0].get("street", "")
+        except:
+            adresse = ""
+
         resultats.append({
-            "nom": ent.get("denomination"),
-            "numero_bce": ent.get("enterpriseNumber"),
-            "forme": ent.get("legalForm"),
-            "date": ent.get("startDate"),
-            "adresse": ent.get("addresses")[0]["street"] if ent.get("addresses") else "",
+            "nom": ent.get("denomination", "Inconnu"),
+            "numero_bce": ent.get("enterpriseNumber", "N/A"),
+            "forme": ent.get("legalForm", "N/A"),
+            "date": ent.get("startDate", "N/A"),
+            "adresse": adresse
         })
 
     return jsonify(resultats)
